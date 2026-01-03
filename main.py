@@ -16,6 +16,21 @@ import threading
 import unir_comprobantes_y_pagos as unir
 
 
+# --------------------------------------------------
+# DETECCIÓN DE MODO EXE
+# --------------------------------------------------
+def get_base_path():
+    """Obtiene la ruta base (donde está el exe o el script)"""
+    if getattr(sys, 'frozen', False):
+        # Ejecutándose como exe
+        return os.path.dirname(sys.executable)
+    else:
+        # Ejecutándose como script
+        return os.path.dirname(os.path.abspath(__file__))
+
+BASE_PATH = get_base_path()
+
+
 # ENVÍO DE CORREOS
 import smtplib
 from email.mime.multipart import MIMEMultipart
@@ -33,7 +48,7 @@ TU_PASSWORD = "qdao uewp cnbt kraz"
 #TU_CORREO = "pruebasinformes1@gmail.com"
 #TU_PASSWORD = "hevm duzl snlc nkqy"
 
-CC_CARTERA = "carteracontadola80@gmail.com"
+#CC_CARTERA = "carteracontadola80@gmail.com"
 #CC_CARTERA = "pruebasinformes1@gmail.com"
 
 
@@ -41,8 +56,8 @@ CC_CARTERA = "carteracontadola80@gmail.com"
 # CONFIGURACIONES GENERALES
 # --------------------------------------------------
 
-# Excel fijo (base de datos)
-DEFAULT_EXCEL = r"C:\comprobantes\proveedores_correos.xlsx"
+# Excel fijo (base de datos) - relativo al exe
+DEFAULT_EXCEL = os.path.join(BASE_PATH, "proveedores_correos.xlsx")
 
 # Escritorio y carpeta Resultados
 ESCRITORIO = os.path.join(os.path.expanduser("~"), "Desktop")
