@@ -65,8 +65,13 @@ CONFIG = {
 EMAIL_CONFIG = {
     "correo": os.environ.get("GMAIL_USER", "carterasuperla80@gmail.com"),
     "password": os.environ.get("GMAIL_APP_PASSWORD", "qdao uewp cnbt kraz"),
-    "cc_cartera": "",
+    "cc_cartera": "liquidacionla80@gmail.com",
 }
+
+# NITs que requieren edición manual antes de enviar (ej: Bucanero)
+NITS_EDICION_MANUAL = [
+    "800197463",  # Bucanero - requiere agregar descuentos
+]
 
 
 # ============================================================
@@ -755,6 +760,7 @@ def ejecutar_unir():
                     for archivo in archivos_a_enviar:
                         nit = os.path.splitext(archivo)[0]
                         correos_raw = nit_to_email.get(nit, "") or ""
+                        correos_raw = str(correos_raw) if correos_raw and str(correos_raw).lower() != "nan" else ""
                         lista_correos = [c.strip() for c in correos_raw.split(";") if c.strip()]
 
                         if not lista_correos:
@@ -763,6 +769,31 @@ def ejecutar_unir():
                             continue
 
                         nombre = nit_to_name.get(nit, "Proveedor")
+                        
+                        ruta_archivo = os.path.join(CARPETAS["resultados"], archivo)
+                        
+                        # Si es un NIT que requiere edición manual, abrir Word y esperar
+                        if nit in NITS_EDICION_MANUAL:
+                            print(f"\n⚠️ NIT {nit} ({nombre}) requiere edición manual.")
+                            print(f"Abriendo documento para editar: {ruta_archivo}")
+                            os.startfile(ruta_archivo)
+                            
+                            # Importar messagebox aquí para no afectar imports globales
+                            from tkinter import messagebox
+                            respuesta = messagebox.askyesno(
+                                "Edición Manual Requerida",
+                                f"Se abrió el documento de {nombre} (NIT {nit}).\n\n"
+                                f"1. Edita el Word agregando descuentos u otros datos\n"
+                                f"2. GUARDA el documento (Ctrl+S)\n"
+                                f"3. Cierra el Word\n\n"
+                                f"¿Ya terminaste de editar y guardaste el documento?"
+                            )
+                            
+                            if not respuesta:
+                                print(f"[SALTADO] {nit} - Usuario canceló la edición")
+                                fallidos.append({"nit": nit, "archivo": archivo, "motivo": "Edición cancelada por usuario"})
+                                continue
+                        
                         body = f"""Buenos días,
 
 Adjuntamos el comprobante de pago correspondiente al NIT {nit}.
@@ -770,8 +801,6 @@ Adjuntamos el comprobante de pago correspondiente al NIT {nit}.
 Quedamos atentos.
 Cordialmente,
 Equipo de Cartera"""
-
-                        ruta_archivo = os.path.join(CARPETAS["resultados"], archivo)
 
                         try:
                             msg = MIMEMultipart()

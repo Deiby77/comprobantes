@@ -15,6 +15,19 @@ import pandas as pd
 import threading
 import unir_comprobantes_y_pagos as unir
 
+# Colores del tema La 80 Supermercados (Negro dominante)
+COLORS = {
+    "bg": "#0a0a0a",           # Fondo negro profundo
+    "bg_secondary": "#151515", # Fondo secundario
+    "accent": "#1f1f1f",       # Acento gris oscuro
+    "primary": "#e31e26",      # Rojo La 80
+    "success": "#08f510",      # Verde La 80
+    "warning": "#ffc107",      # Amarillo La 80
+    "text": "#ffffff",         # Texto blanco
+    "text_secondary": "#999999", # Texto gris
+    "card": "#151515",         # Tarjetas
+}
+
 
 # --------------------------------------------------
 # DETECCIÓN DE MODO EXE
@@ -29,6 +42,9 @@ def get_base_path():
         return os.path.dirname(os.path.abspath(__file__))
 
 BASE_PATH = get_base_path()
+
+# Ruta del logo (después de definir BASE_PATH)
+LOGO_PATH = os.path.join(BASE_PATH, "logo.jpg")
 
 
 # ENVÍO DE CORREOS
@@ -48,8 +64,8 @@ TU_PASSWORD = "qdao uewp cnbt kraz"
 #TU_CORREO = "pruebasinformes1@gmail.com"
 #TU_PASSWORD = "hevm duzl snlc nkqy"
 
-#CC_CARTERA = "carteracontadola80@gmail.com"
-#CC_CARTERA = "pruebasinformes1@gmail.com"
+CC_CARTERA = "liquidacionla80@gmail.com"
+
 
 
 # --------------------------------------------------
@@ -257,45 +273,243 @@ def reenviar_no_enviados(run_path=None):
     )
 
 # --------------------------------------------------
-# GUI PRINCIPAL
+# GUI PRINCIPAL (DISEÑO MODERNO)
 # --------------------------------------------------
 class App:
 
     def __init__(self, root):
         self.root = root
-        root.title("Seleccionar Archivos")
-        root.geometry("420x260")
+        root.title("La 80 - Gestor de Comprobantes")
+        root.geometry("500x680")
         root.resizable(False, False)
+        root.configure(bg=COLORS["bg"])
 
         self.informe_path = None
         self.comprobante_path = None
 
-        tk.Label(root, text="Selecciona los archivos PDF", font=("Segoe UI", 14, "bold")).pack(pady=10)
-
-        tk.Button(root, text="Seleccionar Informe PDF", width=34, command=self.select_informe).pack(pady=4)
-        tk.Button(root, text="Seleccionar Comprobante PDF", width=34, command=self.select_comprobante).pack(pady=4)
-
-        tk.Button(root, text="Iniciar Proceso", width=28, bg="#4CAF50", fg="white",
-                  command=self.cmd_iniciar_proceso).pack(pady=8)
-
-        tk.Button(root, text="Actualizar base de datos", width=28, bg="#2196F3", fg="white",
-                  command=self.cmd_actualizar_base).pack(pady=4)
-
-        tk.Button(root, text="Reenviar no enviados", width=28, bg="#FF9800", fg="white",
-                  command=self.cmd_reenviar).pack(pady=4)
+        # Configurar estilos modernos
+        self.setup_styles()
         
-        # -------- BARRA DE PROGRESO --------
-        self.estado_label = tk.Label(root, text="", font=("Segoe UI", 10))
-        self.estado_label.pack(pady=4)
+        # Frame principal con padding
+        main_frame = tk.Frame(root, bg=COLORS["bg"])
+        main_frame.pack(fill="both", expand=True, padx=30, pady=20)
 
-        self.progress = ttk.Progressbar(
-            root,
-            mode="indeterminate",
-            length=300
+        # ===== HEADER CON LOGO =====
+        header_frame = tk.Frame(main_frame, bg=COLORS["bg"])
+        header_frame.pack(fill="x", pady=(0, 15))
+        
+        # Cargar logo si existe
+        self.logo_image = None
+        try:
+            if os.path.exists(LOGO_PATH):
+                from PIL import Image, ImageTk
+                logo = Image.open(LOGO_PATH)
+                # Redimensionar logo manteniendo proporción
+                logo.thumbnail((120, 80), Image.Resampling.LANCZOS)
+                self.logo_image = ImageTk.PhotoImage(logo)
+                
+                logo_label = tk.Label(header_frame, image=self.logo_image, bg=COLORS["bg"])
+                logo_label.pack(pady=(0, 10))
+        except Exception as e:
+            print(f"[WARN] No se pudo cargar el logo: {e}")
+        
+        tk.Label(
+            header_frame, 
+            text="Gestor de Comprobantes",
+            font=("Segoe UI", 18, "bold"),
+            bg=COLORS["bg"],
+            fg=COLORS["text"]
+        ).pack()
+        
+        tk.Label(
+            header_frame,
+            text="Procesa y envía comprobantes automáticamente",
+            font=("Segoe UI", 9),
+            bg=COLORS["bg"],
+            fg=COLORS["text_secondary"]
+        ).pack(pady=(3, 0))
+
+        # ===== SECCIÓN DE ARCHIVOS =====
+        files_card = self.create_card(main_frame, "📁 Selección de Archivos")
+        
+        # Botón Informe
+        self.btn_informe = self.create_file_button(
+            files_card, 
+            "📋 Seleccionar Informe PDF",
+            self.select_informe
         )
-        self.progress.pack(pady=4)
+        self.lbl_informe = tk.Label(
+            files_card,
+            text="No seleccionado",
+            font=("Segoe UI", 9),
+            bg=COLORS["card"],
+            fg=COLORS["text_secondary"]
+        )
+        self.lbl_informe.pack(pady=(0, 10))
+        
+        # Botón Comprobante
+        self.btn_comprobante = self.create_file_button(
+            files_card,
+            "💳 Seleccionar Comprobante PDF", 
+            self.select_comprobante
+        )
+        self.lbl_comprobante = tk.Label(
+            files_card,
+            text="No seleccionado",
+            font=("Segoe UI", 9),
+            bg=COLORS["card"],
+            fg=COLORS["text_secondary"]
+        )
+        self.lbl_comprobante.pack(pady=(0, 5))
 
+        # ===== BOTÓN INICIAR PROCESO =====
+        self.btn_iniciar = tk.Button(
+            main_frame,
+            text="🚀 INICIAR PROCESO",
+            font=("Segoe UI", 12, "bold"),
+            bg=COLORS["primary"],
+            fg="#ffffff",
+            activebackground="#b71c1c",
+            activeforeground="#ffffff",
+            relief="flat",
+            cursor="hand2",
+            height=2,
+            command=self.cmd_iniciar_proceso
+        )
+        self.btn_iniciar.pack(fill="x", pady=15)
+        self.add_hover_effect(self.btn_iniciar, COLORS["primary"], "#b71c1c")
 
+        # ===== SECCIÓN DE PROGRESO =====
+        progress_card = self.create_card(main_frame, "📊 Estado del Proceso")
+        
+        # Estado actual
+        self.estado_label = tk.Label(
+            progress_card,
+            text="⏳ Esperando...",
+            font=("Segoe UI", 11),
+            bg=COLORS["card"],
+            fg=COLORS["success"]
+        )
+        self.estado_label.pack(pady=(5, 10))
+        
+        # Barra de progreso estilizada
+        style = ttk.Style()
+        style.configure(
+            "Custom.Horizontal.TProgressbar",
+            troughcolor=COLORS["bg_secondary"],
+            background=COLORS["success"],
+            darkcolor=COLORS["success"],
+            lightcolor=COLORS["success"],
+            bordercolor=COLORS["bg_secondary"],
+            thickness=25
+        )
+        
+        self.progress = ttk.Progressbar(
+            progress_card,
+            style="Custom.Horizontal.TProgressbar",
+            mode="indeterminate",
+            length=380
+        )
+        self.progress.pack(pady=(0, 10))
+        
+        # Porcentaje/Detalle
+        self.detalle_label = tk.Label(
+            progress_card,
+            text="",
+            font=("Segoe UI", 9),
+            bg=COLORS["card"],
+            fg=COLORS["text_secondary"]
+        )
+        self.detalle_label.pack()
+
+        # ===== SECCIÓN DE HERRAMIENTAS =====
+        tools_card = self.create_card(main_frame, "🛠️ Herramientas")
+        
+        tools_frame = tk.Frame(tools_card, bg=COLORS["card"])
+        tools_frame.pack(fill="x")
+        
+        # Botón Actualizar Base
+        self.btn_actualizar = tk.Button(
+            tools_frame,
+            text="📊 Actualizar Base",
+            font=("Segoe UI", 10),
+            bg=COLORS["success"],
+            fg="#ffffff",
+            activebackground="#388e3c",
+            relief="flat",
+            cursor="hand2",
+            width=18,
+            height=2,
+            command=self.cmd_actualizar_base
+        )
+        self.btn_actualizar.pack(side="left", padx=(0, 10))
+        self.add_hover_effect(self.btn_actualizar, COLORS["success"], "#388e3c")
+        
+        # Botón Reenviar
+        self.btn_reenviar = tk.Button(
+            tools_frame,
+            text="📨 Reenviar Fallidos",
+            font=("Segoe UI", 10),
+            bg=COLORS["warning"],
+            fg="#000000",
+            activebackground="#ffa000",
+            relief="flat",
+            cursor="hand2",
+            width=18,
+            height=2,
+            command=self.cmd_reenviar
+        )
+        self.btn_reenviar.pack(side="right")
+        self.add_hover_effect(self.btn_reenviar, COLORS["warning"], "#ffa000")
+
+    def setup_styles(self):
+        """Configura los estilos de ttk"""
+        style = ttk.Style()
+        style.theme_use('clam')
+        
+    def create_card(self, parent, title):
+        """Crea una tarjeta con título"""
+        card = tk.Frame(parent, bg=COLORS["card"], relief="flat")
+        card.pack(fill="x", pady=8)
+        
+        # Título de la tarjeta
+        tk.Label(
+            card,
+            text=title,
+            font=("Segoe UI", 11, "bold"),
+            bg=COLORS["card"],
+            fg=COLORS["text"],
+            anchor="w"
+        ).pack(fill="x", padx=15, pady=(12, 8))
+        
+        # Línea separadora
+        separator = tk.Frame(card, bg=COLORS["text_secondary"], height=1)
+        separator.pack(fill="x", padx=15, pady=(0, 10))
+        
+        return card
+    
+    def create_file_button(self, parent, text, command):
+        """Crea un botón de selección de archivo"""
+        btn = tk.Button(
+            parent,
+            text=text,
+            font=("Segoe UI", 10),
+            bg=COLORS["bg_secondary"],
+            fg=COLORS["text"],
+            activebackground=COLORS["accent"],
+            relief="flat",
+            cursor="hand2",
+            width=35,
+            command=command
+        )
+        btn.pack(pady=5, padx=15)
+        self.add_hover_effect(btn, COLORS["bg_secondary"], COLORS["accent"])
+        return btn
+    
+    def add_hover_effect(self, button, normal_color, hover_color):
+        """Agrega efecto hover a un botón"""
+        button.bind("<Enter>", lambda e: button.configure(bg=hover_color))
+        button.bind("<Leave>", lambda e: button.configure(bg=normal_color))
 
     # ----------------------------------------------
     # Selección de PDFs
@@ -303,12 +517,22 @@ class App:
     def select_informe(self):
         self.informe_path = filedialog.askopenfilename(filetypes=[("PDF", "*.pdf")])
         if self.informe_path:
+            nombre = os.path.basename(self.informe_path)
+            self.lbl_informe.config(text=f"✅ {nombre}", fg=COLORS["success"])
             print("[INFO] Informe:", self.informe_path)
 
     def select_comprobante(self):
         self.comprobante_path = filedialog.askopenfilename(filetypes=[("PDF", "*.pdf")])
         if self.comprobante_path:
+            nombre = os.path.basename(self.comprobante_path)
+            self.lbl_comprobante.config(text=f"✅ {nombre}", fg=COLORS["success"])
             print("[INFO] Comprobante:", self.comprobante_path)
+
+    def actualizar_estado(self, texto, detalle=""):
+        """Actualiza el estado mostrado en la interfaz"""
+        self.estado_label.config(text=texto)
+        self.detalle_label.config(text=detalle)
+        self.root.update_idletasks()
 
     # ----------------------------------------------
     # INICIAR PROCESO
@@ -316,8 +540,9 @@ class App:
     def cmd_iniciar_proceso(self):
         bloquear_ventana(self.root)
         
-        self.estado_label.config(text="Cargando...")
-        self.progress.start(10)
+        self.actualizar_estado("🔄 Iniciando proceso...", "Preparando archivos")
+        self.progress.start(15)
+        self.btn_iniciar.config(state="disabled", bg="#666666")
 
         def run():
             try:
@@ -325,23 +550,26 @@ class App:
                     messagebox.showerror("Error", "Selecciona ambos PDF")
                     return
 
+                self.actualizar_estado("📂 Copiando archivos...", "Preparando PDFs")
                 shutil.copy(self.informe_path, PDF_INFORME)
                 shutil.copy(self.comprobante_path, PDF_COMPROBANTE)
 
                 print("[INFO] Archivos listos")
+                self.actualizar_estado("⚙️ Procesando OCR...", "Extrayendo datos de los comprobantes")
 
                 os.environ["RUTA_RUN"] = CARPETA_RUN
                 unir.ejecutar_unir()
 
+                self.actualizar_estado("✅ ¡Proceso completado!", "Revisa la carpeta de resultados")
 
             except Exception as e:
+                self.actualizar_estado("❌ Error en el proceso", str(e)[:50])
                 messagebox.showerror("Error", str(e))
 
             finally:
                 desbloquear_ventana(self.root)
-
                 self.progress.stop()
-                self.estado_label.config(text="Terminado")
+                self.btn_iniciar.config(state="normal", bg=COLORS["primary"])
 
         threading.Thread(target=run, daemon=True).start()
 
@@ -361,18 +589,18 @@ class App:
 
         bloquear_ventana(self.root)
 
-        self.estado_label.config(text="Cargando...")
-        self.progress.start(10)
-
+        self.actualizar_estado("📨 Reenviando correos...", "Procesando documentos fallidos")
+        self.progress.start(15)
+        self.btn_reenviar.config(state="disabled")
 
         def run_thread():
             try:
                 reenviar_no_enviados(run)
+                self.actualizar_estado("✅ Reenvío completado", "")
             finally:
                 desbloquear_ventana(self.root)
-
                 self.progress.stop()
-                self.estado_label.config(text="Terminado")
+                self.btn_reenviar.config(state="normal")
 
         threading.Thread(target=run_thread, daemon=True).start()
 
